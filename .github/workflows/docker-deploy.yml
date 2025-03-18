@@ -1,0 +1,45 @@
+name: Docker Deploy
+
+on:
+  push:
+    branches:
+      - master  # Укажите ветку, на которую нужно реагировать
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: ./src/Example-Web-Deploy/Client.WebMvc
+        dockerfile: ./src/Example-Web-Deploy/Client.WebMvc/Dockerfile
+        push: true
+        tags: gorbatukam/example-web-deploy:latest
+
+    - name: Copy docker-compose.yml to remote host
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan 89.169.10.160 >> ~/.ssh/known_hosts
+        ssh -o StrictHostKeyChecking=no root@89.169.10.160 "mkdir -p /opt/app"
+        scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/docker-compose.yml root@89.169.10.160:/opt/app/docker-compose.yml
+
+    - name: Copy nginx.conf to remote host
+      run: |
+        scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/nginx.conf root@89.169.10.160:/opt/app/nginx.conf
+
+    - name: Deploy to Host
+      run: |
+        ssh -o StrictHostKeyChecking=no root@89.169.10.160 "docker pull gorbatukam/example-web-deploy:latest && docker-compose -f /opt/app/docker-compose.yml up -d"
