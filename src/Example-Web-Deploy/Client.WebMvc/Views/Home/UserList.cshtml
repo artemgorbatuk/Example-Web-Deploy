@@ -1,0 +1,13 @@
+﻿@model List<UserModelView>
+
+<h1>Пользователи</h1>
+
+<div class="col-6">
+    @foreach (var user in Model)
+    {
+        <div class="row bord">
+            <div class="col-6">@user.Id</div>
+            <div class="col-6">@user.Name</div>
+        </div>
+    }
+</div>
