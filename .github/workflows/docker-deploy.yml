@@ -3,7 +3,8 @@ name: Docker Deploy
 on:
   push:
     branches:
-      - master  # Укажите ветку, на которую нужно реагировать
+      - master
+      - Task-*
 
 jobs:
   build-and-deploy:
