@@ -1,18 +1,52 @@
-version: '3.4'
-
+# Проверка файла : https://www.yamllint.com/
+name: web-deploy
+networks:
+  web-deploy-network: null
+volumes:
+  volume-mssql: null
 services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: web-deploy-mssql
+    environment:
+      SA_PASSWORD: "Passw0rd!1"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - volume-mssql:/var/opt/mssql
+    networks:
+      - web-deploy-network
+  migrations:
+    image: gorbatukam/example-web-deploy:latest
+    container_name: web-deploy-migrations
+    depends_on:
+      - mssql
+    command: dotnet ef database update
+    networks:
+      - web-deploy-network
   clientwebmvc:
     image: gorbatukam/example-web-deploy:latest
+    container_name: web-deploy-client
+    restart: always
     build:
-      context: ./Client.WebMvc
+      context: .
       dockerfile: Dockerfile
+      no_cache: true
     expose:
-      - "8080"
+      - "8080:8080"
+    depends_on:
+      - migrations
+    networks:
+      - web-deploy-network
   nginx:
     image: nginx:latest
+    container_name: web-deploy-nginx
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf  # Подключаем конфигурацию Nginx
+      - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - clientwebmvc
+    networks:
+      - web-deploy-network
