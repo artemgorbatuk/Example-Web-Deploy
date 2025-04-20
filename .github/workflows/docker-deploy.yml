@@ -92,13 +92,13 @@ jobs:
       run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose down --remove-orphans --timeout 30 || true"
 
     - name: Clean unused images
-      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker image prune -a -f"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker system prune -f"
 
     - name: Update images
-      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose pull"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose pull --quiet"
 
     - name: Start services
-      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose up -d --no-build" # / --no-build / --no-recreate /
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose up -d --no-deps --no-build --no-recreate"
 
     - name: Verify deployment
       run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose ps --services | xargs -I{} docker-compose ps {} | grep -q 'Up'"
