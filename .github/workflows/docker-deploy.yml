@@ -9,6 +9,16 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # env:
+    #     DOCKER_HUB_USERNAME : ${{ secrets.DOCKER_HUB_USERNAME }}
+    #     DOCKER_HUB_TOKEN : ${{ secrets.DOCKER_HUB_TOKEN }}
+    #     SSH_PRIVATE_KEY : ${{ secrets.SSH_PRIVATE_KEY }}
+    #     SSH_HOST: ${{ secrets.SSH_HOST }}
+    #     SSH_USER: ${{ secrets.SSH_USER }}
+    #     SSH_CRED : "$SSH_USER@$SSH_HOST"
+    #     DATABASE_NAME : ${{ secrets.DATABASE_NAME }}
+    #     DATABASE_USER : ${{ secrets.DATABASE_USER }}
+    #     DATABASE_PASS : ${{ secrets.DATABASE_PASS }}
 
     steps:
     # 1. Подготовка окружения
@@ -43,10 +53,10 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
 
     - name: Add host to known_hosts
-      run: ssh-keyscan 89.169.10.160 >> ~/.ssh/known_hosts
+      run: ssh-keyscan ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
     - name: Create remote app directory
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "mkdir -p /opt/app"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p /opt/app"
 
     # 5. Миграции : Сборка
     - name: Install EF Core tools
@@ -63,40 +73,40 @@ jobs:
 
     # 6. Server : Копирование файлов
     - name: Copy compose files
-      run: scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/docker-compose.yml root@89.169.10.160:/opt/app/
+      run: scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/docker-compose.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/app/
 
     - name: Copy nginx config
-      run: scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/nginx.conf root@89.169.10.160:/opt/app/
+      run: scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/nginx.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/app/
 
     - name: Copy appsettings
-      run: scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/Client.WebMvc/appsettings.json root@89.169.10.160:/opt/app/
+      run: scp -o StrictHostKeyChecking=no ./src/Example-Web-Deploy/Client.WebMvc/appsettings.json ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/app/
 
     - name: Copy migrations bundle
-      run: scp -o StrictHostKeyChecking=no ./efbundle root@89.169.10.160:/opt/app/
+      run: scp -o StrictHostKeyChecking=no ./efbundle ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/app/
 
     # 7. Деплой : Контейнеры. Очистка старых, получение из Docker Hub на Server новых, сборка. 
     - name: Validate compose file
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "cd /opt/app && docker-compose config -q"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose config -q"
 
     - name: Stop containers
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "cd /opt/app && docker-compose down --remove-orphans --timeout 30 || true"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose down --remove-orphans --timeout 30 || true"
 
     - name: Clean unused images
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "docker image prune -a -f"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker image prune -a -f"
 
     - name: Update images
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "cd /opt/app && docker-compose pull"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose pull"
 
     - name: Start services
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "cd /opt/app && docker-compose up -d --no-build" # / --no-build / --no-recreate /
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose up -d --no-build" # / --no-build / --no-recreate /
 
     - name: Verify deployment
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "cd /opt/app && docker-compose ps --services | xargs -I{} docker-compose ps {} | grep -q 'Up'"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/app && docker-compose ps --services | xargs -I{} docker-compose ps {} | grep -q 'Up'"
 
     # 8. Миграции : Применение и очистка
     - name: Wait for PostgreSQL
       run: |
-        ssh -o StrictHostKeyChecking=no root@89.169.10.160 << 'EOF'
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
         for i in {1..30}; do
           if docker exec web-deploy-postgres pg_isready -h localhost -U postgres -d WebDeploy; then
             echo "PostgreSQL ready!"
@@ -110,19 +120,19 @@ jobs:
         EOF
 
     - name: Prepare migration environment
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "docker exec web-deploy-client mkdir -p /app/migrations"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker exec web-deploy-client mkdir -p /app/migrations"
 
     - name: Copy bundle to container
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "docker cp /opt/app/efbundle web-deploy-client:/app/migrations/"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker cp /opt/app/efbundle web-deploy-client:/app/migrations/"
 
     - name: Copy appsettings to container
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "docker cp /opt/app/appsettings.json web-deploy-client:/app/"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker cp /opt/app/appsettings.json web-deploy-client:/app/"
 
     - name: Apply migrations
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "docker exec web-deploy-client /app/migrations/efbundle"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker exec web-deploy-client /app/migrations/efbundle"
 
     - name: Cleanup remote
-      run: ssh -o StrictHostKeyChecking=no root@89.169.10.160 "rm -f /opt/app/efbundle"
+      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -f /opt/app/efbundle"
 
     - name: Cleanup local
       run: rm -f efbundle
