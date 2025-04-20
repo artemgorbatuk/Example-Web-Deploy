@@ -1,18 +1,67 @@
-version: '3.4'
-
+# Проверка файла : https://www.yamllint.com/
+name: web-deploy
+networks:
+  web-deploy-network: 
+      driver: bridge
+volumes:
+  web-deploy-volume:
 services:
+  # mssql:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: web-deploy-mssql
+  #   networks:
+  #     - web-deploy-network
+  #   # restart: on-failure 
+  #   environment:
+  #     SA_PASSWORD: "Password1"
+  #     ACCEPT_EULA: "Y"
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - web-deploy-volume:/var/opt/mssql
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 512M  # Set the maximum memory
+  #       reservations:
+  #         memory: 256M  # Set the minimum memory
+
+  postgres:
+    image: postgres:latest
+    container_name: web-deploy-postgres
+    networks:
+      - web-deploy-network
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "Password1"
+      POSTGRES_DB: "WebDeploy"
+    ports:
+      - "5432:5432"
+    volumes:
+      - web-deploy-volume:/var/lib/postgresql/data
   clientwebmvc:
     image: gorbatukam/example-web-deploy:latest
-    build:
-      context: ./Client.WebMvc
-      dockerfile: Dockerfile
-    expose:
-      - "8080"
+    # build:
+    #     context: .
+    #     dockerfile: Dockerfile
+    container_name: web-deploy-client
+    networks:
+      - web-deploy-network
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+    - postgres
+      # - mssql
   nginx:
     image: nginx:latest
+    container_name: web-deploy-nginx
+    networks:
+      - web-deploy-network
+    restart: always
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf  # Подключаем конфигурацию Nginx
+      - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - clientwebmvc
