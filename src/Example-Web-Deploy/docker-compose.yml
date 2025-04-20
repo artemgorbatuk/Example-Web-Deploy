@@ -8,26 +8,6 @@ volumes:
   web-deploy-volume:
     name: web-deploy-volume
 services:
-  # mssql:
-  #   image: mcr.microsoft.com/mssql/server:2022-latest
-  #   container_name: web-deploy-mssql
-  #   networks:
-  #     - web-deploy-network
-  #   # restart: on-failure 
-  #   environment:
-  #     SA_PASSWORD: "Password1"
-  #     ACCEPT_EULA: "Y"
-  #   ports:
-  #     - "1433:1433"
-  #   volumes:
-  #     - web-deploy-volume:/var/opt/mssql
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 512M  # Set the maximum memory
-  #       reservations:
-  #         memory: 256M  # Set the minimum memory
-
   postgres:
     image: postgres:latest
     container_name: web-deploy-postgres
@@ -54,7 +34,6 @@ services:
       - "8080:8080"
     depends_on:
     - postgres
-      # - mssql
   nginx:
     image: nginx:latest
     container_name: web-deploy-nginx
