@@ -3,7 +3,7 @@ name: web-deploy
 networks:
   web-deploy-network: 
     name: web-deploy-network
-      driver: bridge
+    driver: bridge
 volumes:
   web-deploy-volume:
     name: web-deploy-volume
